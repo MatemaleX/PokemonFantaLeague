@@ -27,7 +27,7 @@ export const BattleFormats: {[k: string]: FormatsData} = {
 		effectType: 'ValidatorRule',
 		name: 'Standard GBU',
 		desc: "The standard ruleset for all official in-game Pok&eacute;mon tournaments and Battle Spot",
-		ruleset: ['Obtainable', 'Team Preview', 'Species Clause', 'Nickname Clause', 'Item Clause', 'Cancel Mod'],
+		ruleset: ['Team Preview', 'Species Clause', 'Nickname Clause', 'Item Clause', 'Cancel Mod'],
 		banlist: ['Battle Bond',
 			'Mewtwo', 'Mew',
 			'Lugia', 'Ho-Oh', 'Celebi',
@@ -838,6 +838,21 @@ export const BattleFormats: {[k: string]: FormatsData} = {
 			}
 		},
 	},
+		megaclause: {
+		effectType: 'Rule',
+		name: 'Mega Clause',
+		desc: "Prevents all pokemon from mega evolving",
+		onValidateSet(set) {
+			const item = this.dex.getItem(set.item);
+			if (item.megaStone) return [`${set.name || set.species}'s item ${item.name} is banned by MegaEvo Clause.`];
+		},
+		onBegin() {
+			this.add('rule', 'Mega Clause: You cannot mega evolve any pokemon');
+			for (const pokemon of this.getAllPokemon()) {
+				pokemon.canMegaEvo = null;
+			}
+		},
+	},
 	dynamaxclause: {
 		effectType: 'Rule',
 		name: 'Dynamax Clause',
@@ -860,8 +875,9 @@ export const BattleFormats: {[k: string]: FormatsData} = {
 		name: 'Dynamax Ubers Clause',
 		desc: "Prevents Pok&eacute;mon on the Ubers dynamax banlist from dynamaxing",
 		onBegin() {
+			const cannotDynamax = this.format.restricted || [];
 			for (const pokemon of this.getAllPokemon()) {
-				if (this.ruleTable.isRestricted('pokemon:' + pokemon.species.id)) pokemon.canDynamax = false;
+				if (cannotDynamax.includes(pokemon.species.name)) pokemon.canDynamax = false;
 			}
 			this.add('html', 'Ubers Dynamax Clause: Pokémon on the <a href="https://www.smogon.com/dex/ss/formats/uber/">Ubers Dynamax Banlist</a> cannot Dynamax.');
 		},
@@ -916,8 +932,9 @@ export const BattleFormats: {[k: string]: FormatsData} = {
 		name: 'STABmons Move Legality',
 		desc: "Allows Pok&eacute;mon to use any move that they or a previous evolution/out-of-battle forme share a type with",
 		checkLearnset(move, species, setSources, set) {
+			const restrictedMoves = this.format.restricted || [];
 			const nonstandard = move.isNonstandard === 'Past' && !this.ruleTable.has('standardnatdex');
-			if (!nonstandard && !move.isZ && !move.isMax && !this.ruleTable.isRestricted('move:' + move.id)) {
+			if (!restrictedMoves.includes(move.name) && !nonstandard && !move.isZ && !move.isMax) {
 				const dex = this.dex;
 				let types: string[];
 				if (species.forme || species.otherFormes) {
